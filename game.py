@@ -1,6 +1,4 @@
 import pygame as pg
-import sys
-import time
 from pygame.locals import *
 
 pg.init() # Init Engine
@@ -10,117 +8,120 @@ width = 700
 height = 500
 line_width = 2
 
-
 rows = 3
 columns = 3
 
 white = (243, 243, 243)
 black = (43, 43, 43)
+
 fontSmall = pg.font.Font(None, 20)
 fontLarge = pg.font.Font(None, 35)
 
 screen = pg.display.set_mode((width, height)) # Display size
 clock = pg.time.Clock() # Set Game Clock
-screen.fill(black)
 
-
-running = True
-pause = False
-reset = False
-
-
-def initGame():
+# Write Centered Text Box
+def centerText(message):
+    text = fontLarge.render(message, True, black)
+    center = text.get_rect(center=(width // 2, height // 2))
+    pg.draw.rect(screen, white, (center[0] - 30, center[1] - 20, center[2] + 60, center[3] + 40))
+    screen.blit(text, center)
     
-    pg.display.set_caption("Tic Tac Toe")
-    
-    # Increment Player Counter
+# Draw and Write Player Win Counter
+def drawCounter(players):
     pg.draw.rect(screen, white, (0, 0, 50, 50))
     for key, p in enumerate(players):
         text = fontSmall.render(p.type + ': ' + str(p.wins), True, black)
         screen.blit(text, (10, 10 * (key*2+1)))
+
+# Game Class
+class Game:
+    
+    # Init Game
+    def __init__(self,
+        players=False, activePlayer=False, startingPlayer=False,
+        running = True, pause = False, reset = False
+    ):
         
-    resetGame()
-
-# Game Functions
-def resetGame():
-    global reset
-    reset = False
+        # Define Players
+        self.players = [Player('x'), Player('o')]
+        self.activePlayer = self.players[0]
+        self.startingPlayer = self.activePlayer
+        
+        # Game Status
+        self.running = running  # Set Game Running Status
+        self.pause = pause      # Set Game Pause Status
+        self.reset = reset      # Set Game Reset 
+        
+        pg.display.set_caption("Tic Tac Toe") # Set Game Tab Name
+        
+        drawCounter(self.players)
+        
+        self.resetGame()
     
-    screen.fill(black)
-    
-    for i in range(2):
-        pg.draw.line(screen, white, (width / 3 * (i+1), 0), (width / 3 * (i+1), height), line_width)
-        pg.draw.line(screen, white, (0, height / 3 * (i+1)), (width, height / 3 * (i+1)), line_width)
-    
-    for column in tiles:
-        for tile in column:
-            tile.marked = False
-            
-    # Increment Player Counter
-    pg.draw.rect(screen, white, (0, 0, 50, 50))
-    for key, p in enumerate(players):
-        text = fontSmall.render(p.type + ': ' + str(p.wins), True, black)
-        screen.blit(text, (10, 10 * (key*2+1)))
+    # Reset Game
+    def resetGame(self):
+        self.reset = False
+        
+        screen.fill(black)
+        
+        # Redraw Game Lines
+        for i in range(2):
+            pg.draw.line(screen, white, (width / 3 * (i+1), 0), (width / 3 * (i+1), height), line_width)
+            pg.draw.line(screen, white, (0, height / 3 * (i+1)), (width, height / 3 * (i+1)), line_width)
+        
+        # Remove Mark Values
+        for column in tiles:
+            for tile in column:
+                tile.marked = False
                 
+        # Increment Player Counter
+        drawCounter(self.players)
     
-def checkWin():
+    # Check for Win
+    def checkWin(self):
     
-    if all(tiles[1][1].marked and (tiles[1][1].marked == tiles[i][i].marked) for i in range(3)) : return True
-    if all(tiles[1][1].marked and (tiles[1][1].marked == tiles[i][-(i+1)].marked) for i in range(3)) : return True
+        if all(tiles[1][1].marked and (tiles[1][1].marked == tiles[i][i].marked) for i in range(3)) : return True
+        if all(tiles[1][1].marked and (tiles[1][1].marked == tiles[i][-(i+1)].marked) for i in range(3)) : return True
         
-    # if all(tiles[1][1].marked and (tiles[1][1].marked in (tiles[i][i].marked, tiles[i][-(i+1)].marked)) for i in range(3)):
-    #     return True
-    
-    for c, column in enumerate(tiles):
+        for c, column in enumerate(tiles):
+            
+            if all(i.marked == column[0].marked and column[0].marked for i in column) or all(tiles[i][c].marked == tiles[0][c].marked and tiles[0][c].marked for i in range(3)):
+                return True
         
-        if all(i.marked == column[0].marked and column[0].marked for i in column) or all(tiles[i][c].marked == tiles[0][c].marked and tiles[0][c].marked for i in range(3)):
-            return True
-    
-    return False
+        return False
 
-
-def win(player):
-    
-    player.wins += 1
-    
-    # Message Player Win
-    text = fontLarge.render("Player " + player.type.upper() + " WINS!!!", True, black)
-    center = text.get_rect(center=(width // 2, height // 2))
-    pg.draw.rect(screen, white, (center[0] - 30, center[1] - 20, center[2] + 60, center[3] + 40))
-    screen.blit(text, center)
-    
-    global activePlayer
-    global startingPlayer
-    match players.index(player):
-        case 0: activePlayer = players[0]
-        case 1: activePlayer = players[1]
-    startingPlayer = activePlayer
+    # Win Event
+    def win(self):
+        self.activePlayer.wins += 1
         
-    global pause
-    pause = True
-
-def checkDraw():
-    if all((tiles[i][0].marked and tiles[i][1].marked and tiles[i][2].marked) for i in range(3)) : draw(activePlayer)
-
-def draw(player):
+        centerText("Player " + self.activePlayer.type.upper() + " WINS!!!")
+        
+        self.startingPlayer = self.switchPlayer(self.activePlayer)
+        self.activePlayer = self.startingPlayer
+        
+        self.pause = True
     
-    # Message Player Draw
-    text = fontLarge.render("Draw :(", True, black)
-    center = text.get_rect(center=(width // 2, height // 2))
-    pg.draw.rect(screen, white, (center[0] - 30, center[1] - 20, center[2] + 60, center[3] + 40))
-    screen.blit(text, center)
+    # Check for Draw
+    def checkDraw(self):
+        return all((tiles[i][0].marked and tiles[i][1].marked and tiles[i][2].marked) for i in range(3))
     
-    global pause
-    pause = True
-    
-    global activePlayer
-    global startingPlayer
-    match players.index(startingPlayer):
-        case 0: startingPlayer = players[0]
-        case 1: startingPlayer = players[1]
-    activePlayer = startingPlayer
-    
-
+    # Draw Event
+    def draw(self):
+        
+        centerText("Draw :(")
+        
+        self.pause = True
+        
+        self.startingPlayer = self.switchPlayer(self.startingPlayer)
+        self.activePlayer = self.startingPlayer
+        
+    # Switch Player
+    def switchPlayer(self, player):
+        match self.players.index(player):
+            case 0: return self.players[1]
+            case 1: return self.players[0]
+              
 # Box Class
 class Tile:
     
@@ -133,12 +134,9 @@ class Tile:
         self.pos = pos
         self.box = pg.Rect(pos[0], pos[1], width/3, height/3)
     
-    def is_clicked(self, mouse_pos):
-        return self.box.collidepoint(mouse_pos)
-    
     def mark(self):
         if not self.marked :
-            self.marked = activePlayer.type
+            self.marked = game.activePlayer.type
             self.write()
             return True
         return False
@@ -151,7 +149,7 @@ class Tile:
             case 'o':
                 pg.draw.circle(screen, white, (self.pos[0]+width/3/2, self.pos[1]+height/3/2), (height/3/2 - 10), line_width)
 
-
+# Player Class
 class Player:
     def __init__(
         self,
@@ -160,59 +158,42 @@ class Player:
     ):
         self.type = type
         self.wins = wins
-
-            
+        
 # Define Tiles
 tiles = [[Tile([i * width/3, j * height/3]) for i in range(columns)] for j in range(rows)]
 
-# Define Players
-players = [Player('x'), Player('o')]
-activePlayer = players[0]
-startingPlayer = activePlayer
-
-
-initGame()
-
-while running:
-
+# Start Game
+game = Game()
+while game.running:
+    
     for event in pg.event.get():
         
-        if event.type == pg.QUIT: running = False
-        
-        if pause :
+        if event.type == pg.QUIT: game.running = False
+
+        if event.type == pg.MOUSEBUTTONDOWN:
             
-            if event.type == pg.MOUSEBUTTONDOWN:
-                reset = True
-                pause = False
+            # Game Paused
+            if game.pause :
+                game.reset = True
+                game.pause = False
             
-        else :
+            # Game Running
+            else :
                 
-            if event.type == pg.MOUSEBUTTONDOWN:
-                
-                # Loop Tiles
                 for column in (tiles):
                     for tile in (column):
-                        if tile.is_clicked(event.pos):
+                        if tile.box.collidepoint(event.pos):
                             play = tile.mark()
                 
-                # Check For Win
-                if checkWin(): win(activePlayer)
                 
-                # Check For Draw
-                elif checkDraw(): draw(activePlayer)
-                
-                # Switch Player
-                if play :
-                    match players.index(activePlayer):
-                        case 0: activePlayer = players[1]
-                        case 1: activePlayer = players[0]
+                if game.checkWin(): game.win()      # Check For Win
+                elif game.checkDraw(): game.draw()  # Check For Draw
+                elif play : game.activePlayer = game.switchPlayer(game.activePlayer)
     
-    checkWin()
-    
-    if reset: resetGame()
-                    
+    # Reset Game
+    if game.reset: game.resetGame()
+       
     pg.display.flip()
-
-    clock.tick(60) # limits FPS to 60
+    clock.tick(60) # Set FPS to 60
 
 pg.quit()
